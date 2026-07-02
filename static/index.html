@@ -3,9 +3,201 @@
 <head>
     <meta charset="UTF-8">
     <title>HSA - Gestão de Peças</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+
+        /* Cabeçalho */
+        .header { display: flex; align-items: center; gap: 20px; }
+        h1 { color: #333; margin: 0; }
+        .btn-cadastrar {
+            padding: 8px 18px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-cadastrar:hover { background: #1558b0; }
+
+        /* Tabela */
+        table { width: 100%; border-collapse: collapse; margin-top: 24px; background: white; border-radius: 8px; overflow: hidden; }
+        th, td { border-bottom: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+        th { background: #1a73e8; color: white; }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: #f0f4ff; }
+
+        /* Modal — fundo escuro */
+        .modal-fundo {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-fundo.aberto { display: flex; }
+
+        /* Modal — janela */
+        .modal {
+            background: white;
+            padding: 28px;
+            border-radius: 10px;
+            width: 360px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        }
+        .modal h2 { margin-top: 0; color: #333; font-size: 18px; }
+        .modal label { font-size: 13px; color: #555; display: block; margin-top: 10px; }
+        .modal input,
+        .modal select {
+            width: 100%;
+            padding: 7px;
+            margin-top: 3px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        .modal-botoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+        .btn-salvar {
+            padding: 8px 18px;
+            background: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-cancelar {
+            padding: 8px 18px;
+            background: #eee;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <h1>HSA Automotive Systems</h1>
-    <p>Sistema carregando...</p>
+
+    <!-- Cabeçalho -->
+    <div class="header">
+        <h1>HSA Automotive Systems — Gestão de Peças</h1>
+        <button class="btn-cadastrar" onclick="abrirModal()">+ Nova Peça</button>
+    </div>
+
+    <!-- Tabela -->
+    <table id="tabela-pecas">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Código PI</th>
+                <th>Nome</th>
+                <th>Próxima Operação</th>
+                <th>Lote</th>
+                <th>Data Entrada</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="corpo-tabela">
+            <tr><td colspan="7">Carregando...</td></tr>
+        </tbody>
+    </table>
+
+    <!-- Modal -->
+    <div class="modal-fundo" id="modal-fundo">
+        <div class="modal">
+            <h2>Cadastrar Nova Peça</h2>
+
+            <label>Código PI (8 dígitos)</label>
+            <input type="text" id="codigo_pi" maxlength="8" placeholder="00012345">
+
+            <label>Nome</label>
+            <input type="text" id="nome" placeholder="Ex: 31-2298 - Haste Curvada">
+
+            <label>Próxima Operação</label>
+            <select id="proxima_operacao">
+                <option value="FormarPonta">Formar Ponta</option>
+                <option value="Trefilar">Trefilar</option>
+                <option value="Endireitar">Endireitar</option>
+                <option value="Cortar">Cortar</option>
+                <option value="LimparBlank">Limpar Blank</option>
+                <option value="FormarEndForming">Formar End Forming</option>
+                <option value="Curvar">Curvar</option>
+                <option value="Recalcar">Recalcar</option>
+                <option value="Rebarbar">Rebarbar</option>
+                <option value="Zincar">Zincar</option>
+                <option value="Calibrar">Calibrar</option>
+            </select>
+
+            <label>Lote</label>
+            <input type="text" id="lote" placeholder="Ex: H0501001001">
+
+            <label>Data de Entrada</label>
+            <input type="date" id="data_entrada">
+
+            <label>Data de Saída (vazio = Em estoque)</label>
+            <input type="date" id="data_saida">
+
+            <div class="modal-botoes">
+                <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+                <button class="btn-salvar" onclick="cadastrarPeca()">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function abrirModal() {
+            document.getElementById("modal-fundo").classList.add("aberto");
+        }
+
+        function fecharModal() {
+            document.getElementById("modal-fundo").classList.remove("aberto");
+        }
+
+        async function carregarPecas() {
+            const res  = await fetch("/pecas");
+            const list = await res.json();
+            const corpo = document.getElementById("corpo-tabela");
+            corpo.innerHTML = "";
+            list.forEach(p => {
+                const status = p.data_saida ? `Saiu em: ${p.data_saida}` : "Em estoque";
+                corpo.innerHTML += `
+                    <tr>
+                        <td>${p.id}</td>
+                        <td>${p.codigo_pi}</td>
+                        <td>${p.nome}</td>
+                        <td>${p.proxima_operacao}</td>
+                        <td>${p.lote}</td>
+                        <td>${p.data_entrada}</td>
+                        <td>${status}</td>
+                    </tr>`;
+            });
+        }
+
+        async function cadastrarPeca() {
+            const data_saida = document.getElementById("data_saida").value;
+            const peca = {
+                codigo_pi:        document.getElementById("codigo_pi").value,
+                nome:             document.getElementById("nome").value,
+                proxima_operacao: document.getElementById("proxima_operacao").value,
+                lote:             document.getElementById("lote").value,
+                data_entrada:     document.getElementById("data_entrada").value,
+                data_saida:       data_saida || null,
+            };
+
+            await fetch("/pecas", {
+                method:  "POST",
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify(peca),
+            });
+
+            fecharModal();
+            carregarPecas();
+        }
+
+        carregarPecas();
+    </script>
+
 </body>
 </html>
