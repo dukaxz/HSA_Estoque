@@ -1,3 +1,9 @@
+//index html
+use actix_files::NamedFile;
+use std::path::PathBuf;
+
+//=================================================================================================================
+
 use std::str::FromStr;
 use std::sync::Mutex;
 
@@ -177,8 +183,33 @@ async fn get_pecas(data: web::Data<AppState>) -> impl Responder {
     HttpResponse::Ok().json(lista)
 }
 
+async fn post_peca(
+    data: web::Data<AppState>,
+    body: web::Json<PecaJson>,
+) -> impl Responder {
+    let conn = data.conn.lock().expect("Erro ao acessar banco");
+
+    let peca = Peca {
+        id:               0,
+        codigo_pi:        body.codigo_pi.clone(),
+        nome:             body.nome.clone(),
+        proxima_operacao: body.proxima_operacao.parse()
+                            .expect("Operação inválida"),
+        lote:             body.lote.clone(),
+        data_entrada:     body.data_entrada.clone(),
+        data_saida:       body.data_saida.clone(),
+    };
+
+    inserir_peca(&conn, &peca);
+    HttpResponse::Ok().body("Peça cadastrada com sucesso!")
+}
+
+
 //=================================================================================================================
 
+async fn index() -> actix_web::Result<NamedFile> {
+    Ok(NamedFile::open(PathBuf::from("static/index.html"))?)
+}
 // Pesquisar afundo async api ("Main")
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -196,8 +227,10 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
-            .route("/health",      web::get().to(health_check))
-            .route("/pecas",       web::get().to(get_pecas))
+            .route("/health", web::get().to(health_check))
+            .route("/pecas", web::get().to(get_pecas))
+            .route("/pecas", web::post().to(post_peca))
+            .route("/", web::get().to(index))
     })
     .bind("127.0.0.1:8080")?
     .run()
