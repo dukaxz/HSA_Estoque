@@ -1,3 +1,17 @@
+use std::sync::Mutex;
+
+use actix_web::{web, App, HttpServer, HttpResponse, Responder};
+
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().body("Servidor rodando!")
+}
+
+async fn get_pecas(data: web::Data<AppState>) -> impl Responder {
+    let conn = data.conn.lock().expect("Erro ao acessar banco");
+    let lista = listar_pecas(&conn);
+    HttpResponse::Ok().json(lista)
+}
+
 use std::str::FromStr;
 
 use rusqlite::Connection;
@@ -52,6 +66,10 @@ struct Peca {
     data_saida: Option<String>,
 }
 
+struct AppState {
+    conn: Mutex<Connection>,
+}
+
 fn iniciar_banco(conn: &Connection) {
     conn.execute_batch(
         "CREATE TABLE IF NOT EXISTS pecas (
@@ -67,37 +85,30 @@ fn iniciar_banco(conn: &Connection) {
     ).expect("Erro ao criar tabela");
 }
 
-fn main() {
-    let conn = Connection::open("pecas.db").expect("Erro ao abrir banco");
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let conn = Connection::open("pecas.db")
+        .expect("Erro ao abrir banco");
 
     iniciar_banco(&conn);
 
-    let peca = Peca {
-        id: 0, // o banco vai gerar o id real
-        codigo_pi:        String::from("15570080"),
-        nome:             String::from("31-2298 - Haste Curvada"),
-        proxima_operacao: ProximaOperacao::Recalcar,
-        lote:             String::from("H0501001001"),
-        data_entrada:     String::from("01/07/2026"),
-        data_saida:       None,
-    };
+    let app_state = web::Data::new(AppState {
+        conn: Mutex::new(conn),
+    });
 
-    inserir_peca(&conn, &peca);
+    println!("Servidor rodando em http://localhost:8080");
 
-    let lista = listar_pecas(&conn);
-    for p in &lista {
-        let status = match &p.data_saida {
-            Some(data) => format!("Saiu em: {}", data),
-            None       => String::from("Em estoque"),
-        };
-        println!("#{} | {} | {} | {} | {} | {}", p.id, p.codigo_pi, p.nome, p.lote, p.data_entrada, status);
-    }
-
+    HttpServer::new(move || {
+        App::new()
+            .app_data(app_state.clone())
+            .route("/health",      web::get().to(health_check))
+            .route("/pecas",       web::get().to(get_pecas))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
 }
-
     
-
-
 fn inserir_peca(conn: &Connection, peca: &Peca) {
     conn.execute(
         "INSERT INTO pecas (codigo_pi, nome, proxima_operacao, lote, data_entrada, data_saida)
@@ -112,6 +123,42 @@ fn inserir_peca(conn: &Connection, peca: &Peca) {
         )
     ).expect("Erro ao inserir peça");
 }
+
+
+fn deletar_peca(conn: &Connection, id: i32) {
+    conn.execute(
+        "DELETE FROM pecas WHERE id = ?1",
+        [id],
+    ).expect("Erro ao deletar peça");
+
+    println!("Peça #{} removida.", id);
+}
+
+
+fn atualizar_peca(conn: &Connection, peca: &Peca) {
+    conn.execute(
+        "UPDATE pecas SET
+            codigo_pi        = ?1,
+            nome             = ?2,
+            proxima_operacao = ?3,
+            lote             = ?4,
+            data_entrada     = ?5,
+            data_saida       = ?6
+         WHERE id = ?7",
+        (
+            &peca.codigo_pi,
+            &peca.nome,
+            format!("{:?}", peca.proxima_operacao),
+            &peca.lote,
+            &peca.data_entrada,
+            &peca.data_saida,
+            &peca.id,
+        ),
+    ).expect("Erro ao atualizar peça");
+
+    println!("Peça #{} atualizada.", peca.id);
+}
+
 
 fn listar_pecas(conn: &Connection) -> Vec<Peca> {
     
