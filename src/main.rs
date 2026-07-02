@@ -1,22 +1,11 @@
+use std::str::FromStr;
 use std::sync::Mutex;
 
+use rusqlite::Connection;
+use serde::{Serialize, Deserialize};
 use actix_web::{web, App, HttpServer, HttpResponse, Responder};
 
-async fn health_check() -> impl Responder {
-    HttpResponse::Ok().body("Servidor rodando!")
-}
-
-async fn get_pecas(data: web::Data<AppState>) -> impl Responder {
-    let conn = data.conn.lock().expect("Erro ao acessar banco");
-    let lista = listar_pecas(&conn);
-    HttpResponse::Ok().json(lista)
-}
-
-use std::str::FromStr;
-
-use rusqlite::Connection;
-
-use serde::{Serialize, Deserialize};
+//=================================================================================================================
 
 #[derive(Debug, Serialize, Deserialize)]
 enum ProximaOperacao {
@@ -54,8 +43,9 @@ impl FromStr for ProximaOperacao {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+//=================================================================================================================
 
+#[derive(Debug, Serialize, Deserialize)]
 struct Peca {
     id: i32,
     codigo_pi: String,
@@ -66,9 +56,14 @@ struct Peca {
     data_saida: Option<String>,
 }
 
+// Pesquisar mais afundo 
 struct AppState {
     conn: Mutex<Connection>,
 }
+
+//=================================================================================================================
+
+// funções para ações
 
 fn iniciar_banco(conn: &Connection) {
     conn.execute_batch(
@@ -85,30 +80,6 @@ fn iniciar_banco(conn: &Connection) {
     ).expect("Erro ao criar tabela");
 }
 
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    let conn = Connection::open("pecas.db")
-        .expect("Erro ao abrir banco");
-
-    iniciar_banco(&conn);
-
-    let app_state = web::Data::new(AppState {
-        conn: Mutex::new(conn),
-    });
-
-    println!("Servidor rodando em http://localhost:8080");
-
-    HttpServer::new(move || {
-        App::new()
-            .app_data(app_state.clone())
-            .route("/health",      web::get().to(health_check))
-            .route("/pecas",       web::get().to(get_pecas))
-    })
-    .bind("127.0.0.1:8080")?
-    .run()
-    .await
-}
-    
 fn inserir_peca(conn: &Connection, peca: &Peca) {
     conn.execute(
         "INSERT INTO pecas (codigo_pi, nome, proxima_operacao, lote, data_entrada, data_saida)
@@ -184,4 +155,52 @@ fn listar_pecas(conn: &Connection) -> Vec<Peca> {
     
     pecas
 }   
+//=================================================================================================================
+
+#[derive(Deserialize)]
+struct PecaJson {
+    codigo_pi:        String,
+    nome:             String,
+    proxima_operacao: String,
+    lote:             String,
+    data_entrada:     String,
+    data_saida:       Option<String>,
+}
+
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok().body("Servidor rodando!")
+}
+
+async fn get_pecas(data: web::Data<AppState>) -> impl Responder {
+    let conn = data.conn.lock().expect("Erro ao acessar banco");
+    let lista = listar_pecas(&conn);
+    HttpResponse::Ok().json(lista)
+}
+
+//=================================================================================================================
+
+// Pesquisar afundo async api ("Main")
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    let conn = Connection::open("pecas.db")
+        .expect("Erro ao abrir banco");
+
+    iniciar_banco(&conn);
+
+    let app_state = web::Data::new(AppState {
+        conn: Mutex::new(conn),
+    });
+
+    println!("Servidor rodando em http://localhost:8080");
+
+    HttpServer::new(move || {
+        App::new()
+            .app_data(app_state.clone())
+            .route("/health",      web::get().to(health_check))
+            .route("/pecas",       web::get().to(get_pecas))
+    })
+    .bind("127.0.0.1:8080")?
+    .run()
+    .await
+}
 
