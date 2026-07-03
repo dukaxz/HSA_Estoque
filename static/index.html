@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <title>HSA - Gestão de Peças</title>
     <style>
+        /* Define fonte padrão, espaçamento interno e cor de fundo da página */
         body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
 
-        /* Cabeçalho */
+        /* Alinha título e botão "Nova Peça" lado a lado com espaço entre eles */
         .header { display: flex; align-items: center; gap: 20px; }
         h1 { color: #333; margin: 0; }
+
+        /* Estilo do botão azul "Nova Peça" e escurece ao passar o mouse */
         .btn-cadastrar {
             padding: 8px 18px;
             background: #1a73e8;
@@ -20,14 +23,22 @@
         }
         .btn-cadastrar:hover { background: #1558b0; }
 
-        /* Tabela */
+        /* Tabela ocupa largura total, sem espaço entre bordas das células */
         table { width: 100%; border-collapse: collapse; margin-top: 24px; background: white; border-radius: 8px; overflow: hidden; }
+
+        /* Borda inferior em cada célula e espaçamento interno */
         th, td { border-bottom: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+
+        /* Cabeçalho da tabela com fundo azul e texto branco */
         th { background: #1a73e8; color: white; }
+
+        /* Remove borda da última linha para não duplicar com a borda do container */
         tr:last-child td { border-bottom: none; }
+
+        /* Destaca a linha ao passar o mouse com fundo azul claro */
         tr:hover td { background: #f0f4ff; }
 
-        /* Modal — fundo escuro */
+        /* Fundo escuro semitransparente que bloqueia a página quando o modal está aberto */
         .modal-fundo {
             display: none;
             position: fixed;
@@ -38,9 +49,11 @@
             align-items: center;
             z-index: 100;
         }
+
+        /* Classe adicionada via JS para exibir o fundo e centralizar o modal */
         .modal-fundo.aberto { display: flex; }
 
-        /* Modal — janela */
+        /* Janela branca do modal centralizada com sombra e bordas arredondadas */
         .modal {
             background: white;
             padding: 28px;
@@ -48,8 +61,14 @@
             width: 360px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
+
+        /* Título do modal sem margem superior */
         .modal h2 { margin-top: 0; color: #333; font-size: 18px; }
+
+        /* Labels dos campos em bloco com espaço acima para separar os campos */
         .modal label { font-size: 13px; color: #555; display: block; margin-top: 10px; }
+
+        /* Inputs e selects ocupam largura total com borda e padding uniforme */
         .modal input,
         .modal select {
             width: 100%;
@@ -60,7 +79,11 @@
             box-sizing: border-box;
             font-size: 14px;
         }
+
+        /* Alinha botões Cancelar e Salvar à direita com espaço entre eles */
         .modal-botoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+        /* Botão Salvar azul igual ao botão Nova Peça */
         .btn-salvar {
             padding: 8px 18px;
             background: #1a73e8;
@@ -69,6 +92,8 @@
             border-radius: 6px;
             cursor: pointer;
         }
+
+        /* Botão Cancelar cinza neutro para não competir visualmente com o Salvar */
         .btn-cancelar {
             padding: 8px 18px;
             background: #eee;
@@ -76,17 +101,20 @@
             border-radius: 6px;
             cursor: pointer;
         }
+
+        /* Remove borda e fundo dos botões de ação (✏️ e 🗑) dentro da tabela */
+        .btn-acao { border: none; background: none; cursor: pointer; font-size: 16px; }
     </style>
 </head>
 <body>
 
-    <!-- Cabeçalho -->
+    <!-- Cabeçalho: título da aplicação + botão que abre o modal de cadastro -->
     <div class="header">
         <h1>HSA Automotive Systems — Gestão de Peças</h1>
         <button class="btn-cadastrar" onclick="abrirModal()">+ Nova Peça</button>
     </div>
 
-    <!-- Tabela -->
+    <!-- Tabela principal: cabeçalho fixo, corpo preenchido dinamicamente pelo JS -->
     <table id="tabela-pecas">
         <thead>
             <tr>
@@ -100,22 +128,27 @@
                 <th>Ações</th>
             </tr>
         </thead>
+        <!-- Corpo vazio: preenchido por carregarPecas() ao abrir a página -->
         <tbody id="corpo-tabela">
-            <tr><td colspan="7">Carregando...</td></tr>
+            <tr><td colspan="8">Carregando...</td></tr>
         </tbody>
     </table>
 
-    <!-- Modal -->
+    <!-- Modal compartilhado: título e campos mudam dependendo se é cadastro ou edição -->
     <div class="modal-fundo" id="modal-fundo">
         <div class="modal">
-            <h2>Cadastrar Nova Peça</h2>
+            <!-- Título dinâmico: "Cadastrar Nova Peça" ou "Editar Peça" -->
+            <h2 id="modal-titulo">Cadastrar Nova Peça</h2>
 
+            <!-- Campo com limite de 8 caracteres, validado antes de enviar -->
             <label>Código PI (8 dígitos)</label>
             <input type="text" id="codigo_pi" maxlength="8" placeholder="00012345">
 
+            <!-- Nome livre da peça, sem restrição de formato -->
             <label>Nome</label>
             <input type="text" id="nome" placeholder="Ex: 31-2298 - Haste Curvada">
 
+            <!-- Lista fixa de operações definidas no enum Rust -->
             <label>Próxima Operação</label>
             <select id="proxima_operacao">
                 <option value="FormarPonta">Formar Ponta</option>
@@ -131,37 +164,64 @@
                 <option value="Calibrar">Calibrar</option>
             </select>
 
+            <!-- Lote validado: deve começar com H seguido de 10 dígitos -->
             <label>Lote</label>
             <input type="text" id="lote" placeholder="Ex: H0501001001">
 
+            <!-- Data obrigatória, preenchida automaticamente no modo edição -->
             <label>Data de Entrada</label>
             <input type="date" id="data_entrada">
 
+            <!-- Data opcional: se vazio, a peça aparece como "Em estoque" na tabela -->
             <label>Data de Saída (vazio = Em estoque)</label>
             <input type="date" id="data_saida">
 
             <div class="modal-botoes">
                 <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
-                <button class="btn-salvar" onclick="cadastrarPeca()">Salvar</button>
+                <!-- salvarPeca() decide se chama POST (novo) ou PUT (edição) -->
+                <button class="btn-salvar" onclick="salvarPeca()">Salvar</button>
             </div>
         </div>
     </div>
 
     <script>
-        function abrirModal() {
+        // Guarda o id da peça sendo editada — null significa modo cadastro novo
+        let pecaEditandoId = null;
+
+        // Abre o modal: limpa os campos para novo cadastro ou preenche com dados da peça para edição
+        function abrirModal(peca = null) {
+            pecaEditandoId = peca ? peca.id : null;
+
+            // Muda o título do modal conforme o modo
+            document.getElementById("modal-titulo").textContent = peca ? "Editar Peça" : "Cadastrar Nova Peça";
+
+            // Preenche cada campo com o valor da peça ou vazio para novo cadastro
+            document.getElementById("codigo_pi").value        = peca ? peca.codigo_pi : "";
+            document.getElementById("nome").value             = peca ? peca.nome : "";
+            document.getElementById("proxima_operacao").value = peca ? peca.proxima_operacao : "FormarPonta";
+            document.getElementById("lote").value             = peca ? peca.lote : "";
+            document.getElementById("data_entrada").value     = peca ? peca.data_entrada : "";
+            document.getElementById("data_saida").value       = peca ? (peca.data_saida || "") : "";
+
             document.getElementById("modal-fundo").classList.add("aberto");
         }
 
+        // Fecha o modal e reseta o id de edição para null
         function fecharModal() {
+            pecaEditandoId = null;
             document.getElementById("modal-fundo").classList.remove("aberto");
         }
 
+        // Busca todas as peças no GET /pecas e reconstrói as linhas da tabela
         async function carregarPecas() {
             const res  = await fetch("/pecas");
             const list = await res.json();
             const corpo = document.getElementById("corpo-tabela");
             corpo.innerHTML = "";
+
+            // Cria uma linha por peça com status calculado e botões de ação
             list.forEach(p => {
+                // Mostra a data de saída se existir, caso contrário exibe "Em estoque"
                 const status = p.data_saida ? `Saiu em: ${p.data_saida}` : "Em estoque";
                 corpo.innerHTML += `
                     <tr>
@@ -172,42 +232,38 @@
                         <td>${p.lote}</td>
                         <td>${p.data_entrada}</td>
                         <td>${status}</td>
+                        <td>
+                            <!-- Passa o objeto completo da peça para abrir o modal já preenchido -->
+                            <button class="btn-acao" onclick='abrirModal(${JSON.stringify(p)})'>✏️</button>
+                            <!-- Pede confirmação antes de deletar para evitar exclusão acidental -->
+                            <button class="btn-acao" style="color:red" onclick="deletarPeca(${p.id})">🗑</button>
                         </td>
-                            <button onclick="deletarPeca(${p.id})" style="color:red; border:none; background:none; cursor:pointer;">🗑</button>
-        </td>
                     </tr>`;
             });
         }
 
+        // Valida codigo_pi (8 dígitos) e lote (H + 10 dígitos) antes de enviar ao servidor
         function validarCampos(peca) {
-        const regexCodigo = /^\d{8}$/;
-        const regexLote   = /^H\d{10}$/;
+            const regexCodigo = /^\d{8}$/;
+            const regexLote   = /^H\d{10}$/;
 
-        if (!regexCodigo.test(peca.codigo_pi)) {
-            alert("Código PI inválido — deve ter exatamente 8 dígitos numéricos.");
-            return false;
+            if (!regexCodigo.test(peca.codigo_pi)) {
+                alert("Código PI inválido — deve ter exatamente 8 dígitos numéricos.");
+                return false;
+            }
+            if (!regexLote.test(peca.lote)) {
+                alert("Lote inválido — deve começar com H seguido de 10 dígitos (ex: H0501001001).");
+                return false;
+            }
+            if (!peca.nome || !peca.data_entrada) {
+                alert("Preencha todos os campos obrigatórios.");
+                return false;
+            }
+            return true;
         }
 
-        if (!regexLote.test(peca.lote)) {
-            alert("Lote inválido — deve começar com H seguido de 10 dígitos (ex: H0501001001).");
-            return false;
-        }
-
-        if (!peca.codigo_pi || !peca.nome || !peca.lote || !peca.data_entrada) {
-            alert("Preencha todos os campos obrigatórios.");
-            return false;
-        }
-
-    return true;
-}
-        async function deletarPeca(id) {
-            if (!confirm("Tem certeza que deseja deletar esta peça?")) return;
-
-            await fetch(`/pecas/${id}`, { method: "DELETE" });
-            carregarPecas();
-        }
-
-        async function cadastrarPeca() {
+        // Decide entre POST (cadastro) ou PUT (edição) com base no pecaEditandoId
+        async function salvarPeca() {
             const data_saida = document.getElementById("data_saida").value;
             const peca = {
                 codigo_pi:        document.getElementById("codigo_pi").value,
@@ -219,17 +275,35 @@
             };
 
             if (!validarCampos(peca)) return;
-            
-            await fetch("/pecas", {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify(peca),
-            });
-            
+
+            if (pecaEditandoId !== null) {
+                // Modo edição: envia PUT com o id da peça na URL
+                await fetch(`/pecas/${pecaEditandoId}`, {
+                    method:  "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body:    JSON.stringify(peca),
+                });
+            } else {
+                // Modo cadastro: envia POST para criar nova peça no banco
+                await fetch("/pecas", {
+                    method:  "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body:    JSON.stringify(peca),
+                });
+            }
+
             fecharModal();
+            carregarPecas(); // Recarrega a tabela para refletir a alteração
+        }
+
+        // Envia DELETE /pecas/{id} e recarrega a tabela após confirmação do usuário
+        async function deletarPeca(id) {
+            if (!confirm("Tem certeza que deseja deletar esta peça?")) return;
+            await fetch(`/pecas/${id}`, { method: "DELETE" });
             carregarPecas();
         }
 
+        // Carrega a tabela automaticamente ao abrir a página
         carregarPecas();
     </script>
 
