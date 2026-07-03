@@ -175,6 +175,28 @@
             });
         }
 
+        function validarCampos(peca) {
+        const regexCodigo = /^\d{8}$/;
+        const regexLote   = /^H\d{10}$/;
+
+        if (!regexCodigo.test(peca.codigo_pi)) {
+            alert("Código PI inválido — deve ter exatamente 8 dígitos numéricos.");
+            return false;
+        }
+
+        if (!regexLote.test(peca.lote)) {
+            alert("Lote inválido — deve começar com H seguido de 10 dígitos (ex: H0501001001).");
+            return false;
+        }
+
+        if (!peca.codigo_pi || !peca.nome || !peca.lote || !peca.data_entrada) {
+            alert("Preencha todos os campos obrigatórios.");
+            return false;
+        }
+
+    return true;
+}
+
         async function cadastrarPeca() {
             const data_saida = document.getElementById("data_saida").value;
             const peca = {
@@ -186,12 +208,14 @@
                 data_saida:       data_saida || null,
             };
 
+            if (!validarCampos(peca)) return;
+            
             await fetch("/pecas", {
                 method:  "POST",
                 headers: { "Content-Type": "application/json" },
                 body:    JSON.stringify(peca),
             });
-
+            
             fecharModal();
             carregarPecas();
         }

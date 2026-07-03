@@ -187,6 +187,19 @@ async fn post_peca(
     data: web::Data<AppState>,
     body: web::Json<PecaJson>,
 ) -> impl Responder {
+
+    if body.codigo_pi.len() != 8 || !body.codigo_pi.chars().all(|c| c.is_ascii_digit()) {
+        return HttpResponse::BadRequest().body("Código PI inválido — deve ter exatamente 8 dígitos numéricos.");
+    }
+
+    let lote_valido = body.lote.starts_with('H')
+    && body.lote.len() == 11
+    && body.lote[1..].chars().all(|c| c.is_ascii_digit());
+
+    if !lote_valido {
+        return HttpResponse::BadRequest().body("Lote invalido - fora do padrão.")
+    }
+    
     let conn = data.conn.lock().expect("Erro ao acessar banco");
 
     let peca = Peca {
@@ -203,7 +216,6 @@ async fn post_peca(
     inserir_peca(&conn, &peca);
     HttpResponse::Ok().body("Peça cadastrada com sucesso!")
 }
-
 
 //=================================================================================================================
 
