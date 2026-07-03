@@ -217,6 +217,16 @@ async fn post_peca(
     HttpResponse::Ok().body("Peça cadastrada com sucesso!")
 }
 
+async fn delete_peca(
+    data: web::Data<AppState>,
+    path: web::Path<i32>,
+) -> impl Responder {
+    let id = path.into_inner();
+    let conn = data.conn.lock().expect("Erro ao acessar banco");
+    deletar_peca(&conn, id);
+    HttpResponse::Ok().body("Peça deletada.")
+}
+
 //=================================================================================================================
 
 async fn index() -> actix_web::Result<NamedFile> {
@@ -243,6 +253,7 @@ async fn main() -> std::io::Result<()> {
             .route("/pecas", web::get().to(get_pecas))
             .route("/pecas", web::post().to(post_peca))
             .route("/", web::get().to(index))
+            .route("/pecas/{id}", web::delete().to(delete_peca))
     })
     .bind("127.0.0.1:8080")?
     .run()
