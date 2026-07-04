@@ -171,8 +171,8 @@ fn listar_pecas(conn: &Connection) -> Vec<Peca> {
                     s.parse().expect("Operação inválida no banco")
                 },
                 lote:             row.get(4)?,
-                data_entrada:     row.get(5)?,
-                data_saida:       row.get(6)?,
+                data_entrada:     formatar_data(&row.get::<_, String>(5)?),
+                data_saida:       row.get::<_, Option<String>>(6)?.map(|d| formatar_data(&d)),
             })
         })
         .expect("Erro ao consultar peças")
@@ -180,6 +180,16 @@ fn listar_pecas(conn: &Connection) -> Vec<Peca> {
         .collect();
 
     pecas
+}
+
+// Converte data do formato ISO (AAAA-MM-DD) para BR (DD/MM/AAAA) para exibição no frontend
+fn formatar_data(data: &str) -> String {
+    let partes: Vec<&str> = data.split('-').collect();
+    if partes.len() == 3 {
+        format!("{}/{}/{}", partes[2], partes[1], partes[0])
+    } else {
+        data.to_string() // retorna original se o formato for inesperado
+    }
 }
 
 // ================================================================================================
