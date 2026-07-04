@@ -12,7 +12,6 @@ use actix_web::{web, App, HttpServer, HttpResponse, Responder};
 // ================================================================================================
 // ENUM — Define as operações fixas do processo produtivo (espelho do processo real da HSA)
 
-
 #[derive(Debug, Serialize, Deserialize)]
 enum ProximaOperacao {
     FormarPonta,
@@ -31,7 +30,7 @@ enum ProximaOperacao {
 // Converte String vinda do banco ("Recalcar") de volta para a variante do enum (ProximaOperacao::Recalcar)
 impl FromStr for ProximaOperacao {
     type Err = String;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "FormarPonta"      => Ok(ProximaOperacao::FormarPonta),
@@ -46,7 +45,7 @@ impl FromStr for ProximaOperacao {
             "Zincar"           => Ok(ProximaOperacao::Zincar),
             "Calibrar"         => Ok(ProximaOperacao::Calibrar),
             // Qualquer valor fora da lista causa erro imediato — dado inválido nunca entra no banco
-            _  => Err(format!("Operação desconhecida: {}", s)),
+            _ => Err(format!("Operação desconhecida: {}", s)),
         }
     }
 }
@@ -54,17 +53,16 @@ impl FromStr for ProximaOperacao {
 // ================================================================================================
 // STRUCTS — Moldes de dados usados no sistema
 
-
 // Representa uma peça completa conforme salva no banco — usada em SELECT e UPDATE
 #[derive(Debug, Serialize, Deserialize)]
 struct Peca {
-    id:               i32,            // Gerado automaticamente pelo SQLite (AUTOINCREMENT)
-    codigo_pi:        String,         // 8 dígitos numéricos — identificador interno da peça
-    nome:             String,         // Nome descritivo da peça (ex: 31-2298 - Haste Curvada)
-    proxima_operacao: ProximaOperacao,// Operação seguinte no processo produtivo
-    data_entrada:     String,         // Data em que a peça entrou no estoque
-    lote:             String,         // Lote de origem — padrão H + 10 dígitos (ex: H0501001001)
-    data_saida:       Option<String>, // None = peça ainda em estoque, Some = data em que saiu
+    id:               i32,             // Gerado automaticamente pelo SQLite (AUTOINCREMENT)
+    codigo_pi:        String,          // 8 dígitos numéricos — identificador interno da peça
+    nome:             String,          // Nome descritivo da peça (ex: 31-2298 - Haste Curvada)
+    proxima_operacao: ProximaOperacao, // Operação seguinte no processo produtivo
+    data_entrada:     String,          // Data em que a peça entrou no estoque
+    lote:             String,          // Lote de origem — padrão H + 10 dígitos (ex: H0501001001)
+    data_saida:       Option<String>,  // None = peça ainda em estoque, Some = data em que saiu
 }
 
 // Representa os dados recebidos via JSON do formulário HTML — sem id (gerado pelo banco)
@@ -72,9 +70,20 @@ struct Peca {
 struct PecaJson {
     codigo_pi:        String,
     nome:             String,
-    proxima_operacao: String,         // Recebido como String e convertido para enum antes de salvar
+    proxima_operacao: String,          // Recebido como String e convertido para enum antes de salvar
     lote:             String,
     data_entrada:     String,
+    data_saida:       Option<String>,
+}
+
+// Parâmetros de filtro recebidos na query string do GET /pecas
+#[derive(Deserialize)]
+struct FiltrosPeca {
+    codigo_pi:        Option<String>,
+    nome:             Option<String>,
+    lote:             Option<String>,
+    proxima_operacao: Option<String>,
+    data_entrada:     Option<String>,
     data_saida:       Option<String>,
 }
 
@@ -85,7 +94,6 @@ struct AppState {
 
 // ================================================================================================
 // FUNÇÕES DE BANCO — Executam as operações SQL no SQLite
-
 
 // Cria a tabela "pecas" no banco caso ainda não exista — executado uma vez ao iniciar o servidor
 fn iniciar_banco(conn: &Connection) {
@@ -153,35 +161,6 @@ fn atualizar_peca(conn: &Connection, peca: &Peca) {
     println!("Peça #{} atualizada.", peca.id);
 }
 
-// Busca todas as peças do banco e retorna como Vec<Peca> — chamada pela rota GET /pecas
-fn listar_pecas(conn: &Connection) -> Vec<Peca> {
-    let mut stmt = conn
-        .prepare("SELECT id, codigo_pi, nome, proxima_operacao, lote, data_entrada, data_saida FROM pecas")
-        .expect("Erro ao preparar consulta");
-
-    let pecas: Vec<Peca> = stmt
-        .query_map([], |row| {
-            Ok(Peca {
-                id:               row.get(0)?,
-                codigo_pi:        row.get(1)?,
-                nome:             row.get(2)?,
-                proxima_operacao: {
-                    // Lê como String do banco e converte para o enum — erro explode se valor for inválido
-                    let s: String = row.get(3)?;
-                    s.parse().expect("Operação inválida no banco")
-                },
-                lote:             row.get(4)?,
-                data_entrada:     formatar_data(&row.get::<_, String>(5)?),
-                data_saida:       row.get::<_, Option<String>>(6)?.map(|d| formatar_data(&d)),
-            })
-        })
-        .expect("Erro ao consultar peças")
-        .filter_map(|r| r.ok())
-        .collect();
-
-    pecas
-}
-
 // Converte data do formato ISO (AAAA-MM-DD) para BR (DD/MM/AAAA) para exibição no frontend
 fn formatar_data(data: &str) -> String {
     let partes: Vec<&str> = data.split('-').collect();
@@ -192,9 +171,55 @@ fn formatar_data(data: &str) -> String {
     }
 }
 
+// Monta SELECT com WHERE dinâmico — só passa parâmetros das colunas filtradas
+fn listar_pecas_filtradas(conn: &Connection, f: &FiltrosPeca) -> Vec<Peca> {
+    let mut sql = String::from(
+        "SELECT id, codigo_pi, nome, proxima_operacao, lote, data_entrada, data_saida FROM pecas WHERE 1=1"
+    );
+    let mut params: Vec<String> = Vec::new();
+
+    // Adiciona cláusula e parâmetro apenas se o filtro foi preenchido
+    if let Some(v) = &f.codigo_pi        { sql.push_str(" AND codigo_pi LIKE ?");        params.push(format!("%{}%", v)); }
+    if let Some(v) = &f.nome             { sql.push_str(" AND nome LIKE ?");             params.push(format!("%{}%", v)); }
+    if let Some(v) = &f.lote             { sql.push_str(" AND lote LIKE ?");             params.push(format!("%{}%", v)); }
+    if let Some(v) = &f.proxima_operacao { sql.push_str(" AND proxima_operacao LIKE ?"); params.push(format!("%{}%", v)); }
+    if let Some(v) = &f.data_entrada     { sql.push_str(" AND data_entrada LIKE ?");     params.push(format!("%{}%", v)); }
+    if let Some(v) = &f.data_saida       { sql.push_str(" AND data_saida LIKE ?");       params.push(format!("%{}%", v)); }
+
+    let mut stmt = conn.prepare(&sql).expect("Erro ao preparar filtro");
+
+    // Converte Vec<String> para o formato que o rusqlite aceita
+    let params_ref: Vec<&dyn rusqlite::ToSql> = params
+        .iter()
+        .map(|s| s as &dyn rusqlite::ToSql)
+        .collect();
+
+    let pecas: Vec<Peca> = stmt
+        .query_map(params_ref.as_slice(), |row| {
+            Ok(Peca {
+                id:               row.get(0)?,
+                codigo_pi:        row.get(1)?,
+                nome:             row.get(2)?,
+                proxima_operacao: {
+                    let s: String = row.get(3)?;
+                    s.parse().expect("Operação inválida no banco")
+                },
+                lote:             row.get(4)?,
+                // Converte data_entrada de ISO para BR antes de enviar ao frontend
+                data_entrada:     formatar_data(&row.get::<_, String>(5)?),
+                // Converte data_saida de ISO para BR se existir, ou mantém None
+                data_saida:       row.get::<_, Option<String>>(6)?.map(|d| formatar_data(&d)),
+            })
+        })
+        .expect("Erro ao filtrar peças")
+        .filter_map(|r| r.ok())
+        .collect();
+
+    pecas
+}
+
 // ================================================================================================
 // ROTAS HTTP — Recebem requisições do navegador e chamam as funções de banco
-
 
 // Rota de verificação — GET /health — confirma que o servidor está no ar
 async fn health_check() -> impl Responder {
@@ -206,10 +231,13 @@ async fn index() -> actix_web::Result<NamedFile> {
     Ok(NamedFile::open(PathBuf::from("static/index.html"))?)
 }
 
-// Retorna todas as peças do banco em JSON — GET /pecas — consumido pelo JS da tabela
-async fn get_pecas(data: web::Data<AppState>) -> impl Responder {
+// Retorna peças filtradas em JSON — GET /pecas?codigo_pi=...&nome=... — consumido pelo JS da tabela
+async fn get_pecas(
+    data:    web::Data<AppState>,
+    filtros: web::Query<FiltrosPeca>,
+) -> impl Responder {
     let conn = data.conn.lock().expect("Erro ao acessar banco");
-    let lista = listar_pecas(&conn);
+    let lista = listar_pecas_filtradas(&conn, &filtros);
     HttpResponse::Ok().json(lista)
 }
 
@@ -287,7 +315,7 @@ async fn put_peca(
     HttpResponse::Ok().body("Peça atualizada.")
 }
 
-// Remove uma peça pelo id — DELETE /pecas/{id} — chamada pelo botão 🗑 da tabela
+// Remove uma peça pelo id — DELETE /pecas/{id} — chamada pelo modal de exclusão
 async fn delete_peca(
     data: web::Data<AppState>,
     path: web::Path<i32>,
@@ -300,7 +328,6 @@ async fn delete_peca(
 
 // ================================================================================================
 // MAIN — Inicializa o banco e sobe o servidor com todas as rotas registradas
-
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -322,12 +349,12 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
-            .route("/",            web::get().to(index))       // Serve a página HTML
-            .route("/health",      web::get().to(health_check))// Verifica se o servidor está no ar
-            .route("/pecas",       web::get().to(get_pecas))   // Lista todas as peças em JSON
-            .route("/pecas",       web::post().to(post_peca))  // Cadastra nova peça
-            .route("/pecas/{id}",  web::put().to(put_peca))    // Atualiza peça pelo id
-            .route("/pecas/{id}",  web::delete().to(delete_peca)) // Deleta peça pelo id
+            .route("/",           web::get().to(index))          // Serve a página HTML
+            .route("/health",     web::get().to(health_check))   // Verifica se o servidor está no ar
+            .route("/pecas",      web::get().to(get_pecas))      // Lista peças filtradas em JSON
+            .route("/pecas",      web::post().to(post_peca))     // Cadastra nova peça
+            .route("/pecas/{id}", web::put().to(put_peca))       // Atualiza peça pelo id
+            .route("/pecas/{id}", web::delete().to(delete_peca)) // Deleta peça pelo id
     })
     .bind("127.0.0.1:8080")?
     .run()

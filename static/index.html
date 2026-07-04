@@ -110,6 +110,28 @@
 
         /* Remove borda e fundo dos botões de ação (✏️) dentro da tabela */
         .btn-acao { border: none; background: none; cursor: pointer; font-size: 16px; }
+
+        /* Linha de filtros abaixo do cabeçalho com espaço entre os campos */
+        #filtros { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+        /* Campos de filtro com tamanho reduzido para caber na linha */
+        #filtros input, #filtros select {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        /* Botão de limpar filtros com estilo neutro */
+        #filtros button {
+            padding: 6px 14px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        #filtros button:hover { background: #f0f0f0; }
     </style>
 </head>
 <body>
@@ -118,7 +140,32 @@
     <div class="header">
         <h1>HSA Automotive Systems — Gestão de Peças</h1>
         <button class="btn-cadastrar" onclick="abrirModal()">+ Nova Peça</button>
-        <button class="btn-deletar" onclick="abrirModalDeletar()">🗑 Excluir Peça</button>
+        <button class="btn-deletar" onclick="abrirModalDeletar()">Excluir Peça</button>
+    </div>
+
+    <!-- Linha de filtros: cada campo dispara carregarPecas() ao ser alterado -->
+    <div id="filtros">
+        <input type="text"   id="f-codigo"   placeholder="Filtrar Código PI"    oninput="carregarPecas()">
+        <input type="text"   id="f-nome"     placeholder="Filtrar Nome"         oninput="carregarPecas()">
+        <input type="text"   id="f-lote"     placeholder="Filtrar Lote"         oninput="carregarPecas()">
+        <!-- Select com todas as operações do enum Rust — opção vazia retorna todas -->
+        <select id="f-operacao" onchange="carregarPecas()">
+            <option value="">Todas as Operações</option>
+            <option value="FormarPonta">Formar Ponta</option>
+            <option value="Trefilar">Trefilar</option>
+            <option value="Endireitar">Endireitar</option>
+            <option value="Cortar">Cortar</option>
+            <option value="LimparBlank">Limpar Blank</option>
+            <option value="FormarEndForming">Formar End Forming</option>
+            <option value="Curvar">Curvar</option>
+            <option value="Recalcar">Recalcar</option>
+            <option value="Rebarbar">Rebarbar</option>
+            <option value="Zincar">Zincar</option>
+            <option value="Calibrar">Calibrar</option>
+        </select>
+        <input type="date" id="f-entrada" oninput="carregarPecas()">
+        <!-- Limpa todos os campos de filtro e recarrega a tabela completa -->
+        <button onclick="limparFiltros()">✕ Limpar</button>
     </div>
 
     <!-- Tabela principal: cabeçalho fixo, corpo preenchido dinamicamente pelo JS -->
@@ -265,16 +312,29 @@
             carregarPecas(); // Atualiza a tabela após a exclusão
         }
 
-        // Busca todas as peças no GET /pecas e reconstrói as linhas da tabela
+        // Busca peças no backend com os filtros ativos e reconstrói a tabela
         async function carregarPecas() {
-            const res  = await fetch("/pecas");
+            // Lê o valor de cada campo de filtro
+            const params = new URLSearchParams();
+            const codigo   = document.getElementById("f-codigo").value.trim();
+            const nome     = document.getElementById("f-nome").value.trim();
+            const lote     = document.getElementById("f-lote").value.trim();
+            const operacao = document.getElementById("f-operacao").value;
+            const entrada  = document.getElementById("f-entrada").value;
+
+            // Só adiciona o parâmetro se o campo foi preenchido
+            if (codigo)   params.append("codigo_pi", codigo);
+            if (nome)     params.append("nome", nome);
+            if (lote)     params.append("lote", lote);
+            if (operacao) params.append("proxima_operacao", operacao);
+            if (entrada)  params.append("data_entrada", entrada);
+
+            const res  = await fetch(`/pecas?${params.toString()}`);
             const list = await res.json();
             const corpo = document.getElementById("corpo-tabela");
             corpo.innerHTML = "";
 
-            // Cria uma linha por peça com status calculado e botão de edição
             list.forEach(p => {
-                // Mostra a data de saída se existir, caso contrário exibe "Em estoque"
                 const status = p.data_saida ? `Saiu em: ${p.data_saida}` : "Em estoque";
                 corpo.innerHTML += `
                     <tr>
@@ -286,11 +346,20 @@
                         <td>${p.data_entrada}</td>
                         <td>${status}</td>
                         <td>
-                            <!-- Passa o objeto completo da peça para abrir o modal já preenchido -->
                             <button class="btn-acao" onclick='abrirModal(${JSON.stringify(p)})'>✏️</button>
                         </td>
                     </tr>`;
             });
+        }
+
+        // Limpa todos os campos de filtro e recarrega a tabela completa
+        function limparFiltros() {
+            document.getElementById("f-codigo").value   = "";
+            document.getElementById("f-nome").value     = "";
+            document.getElementById("f-lote").value     = "";
+            document.getElementById("f-operacao").value = "";
+            document.getElementById("f-entrada").value  = "";
+            carregarPecas();
         }
 
         // Valida codigo_pi (8 dígitos) e lote (H + 10 dígitos) antes de enviar ao servidor
@@ -345,6 +414,16 @@
 
             fecharModal();
             carregarPecas(); // Recarrega a tabela para refletir a alteração
+        }
+
+        // Limpa todos os campos de filtro e recarrega a tabela completa
+        function limparFiltros() {
+            document.getElementById("f-codigo").value   = "";
+            document.getElementById("f-nome").value     = "";
+            document.getElementById("f-lote").value     = "";
+            document.getElementById("f-operacao").value = "";
+            document.getElementById("f-entrada").value  = "";
+            carregarPecas();
         }
 
         // Carrega a tabela automaticamente ao abrir a página
