@@ -8,7 +8,7 @@
         body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
 
         /* Alinha título e botões lado a lado com espaço entre eles */
-        .header { display: flex; align-items: center; gap: 20px; }
+        .header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
         h1 { color: #333; margin: 0; }
 
         /* Estilo base compartilhado pelos dois botões do cabeçalho */
@@ -108,67 +108,43 @@
             cursor: pointer;
         }
 
-        /* Remove borda e fundo dos botões de ação (✏️) dentro da tabela */
-        .btn-acao { border: none; background: none; cursor: pointer; font-size: 16px; }
+        /* Remove borda e fundo dos botões de ação dentro da tabela */
+        .btn-acao { border: none; background: none; cursor: pointer; font-size: 14px; color: #1a73e8; }
 
-        /* Linha de filtros abaixo do cabeçalho com espaço entre os campos */
-        #filtros { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-
-        /* Campos de filtro com tamanho reduzido para caber na linha */
-        #filtros input, #filtros select {
-            padding: 6px 10px;
+        /* Campos de filtro no cabeçalho da tabela */
+        .linha-filtros input,
+        .linha-filtros select {
+            width: 100%;
+            padding: 6px;
             border: 1px solid #ccc;
-            border-radius: 6px;
+            border-radius: 5px;
+            box-sizing: border-box;
             font-size: 13px;
         }
 
         /* Botão de limpar filtros com estilo neutro */
-        #filtros button {
-            padding: 6px 14px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
+        .linha-filtros button {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 5px;
             background: white;
             cursor: pointer;
             font-size: 13px;
         }
-        #filtros button:hover { background: #f0f0f0; }
+
+        .linha-filtros button:hover { background: #f0f0f0; }
     </style>
 </head>
 <body>
 
     <!-- Cabeçalho: título + botão de cadastro + botão de exclusão por id -->
     <div class="header">
-        <h1>HSA Automotive Systems — Gestão de Peças</h1>
+        <h1>HSA Automotive Systems - Gestão de Peças</h1>
         <button class="btn-cadastrar" onclick="abrirModal()">+ Nova Peça</button>
         <button class="btn-deletar" onclick="abrirModalDeletar()">Excluir Peça</button>
     </div>
 
-    <!-- Linha de filtros: cada campo dispara carregarPecas() ao ser alterado -->
-    <div id="filtros">
-        <input type="text"   id="f-codigo"   placeholder="Filtrar Código PI"    oninput="carregarPecas()">
-        <input type="text"   id="f-nome"     placeholder="Filtrar Nome"         oninput="carregarPecas()">
-        <input type="text"   id="f-lote"     placeholder="Filtrar Lote"         oninput="carregarPecas()">
-        <!-- Select com todas as operações do enum Rust — opção vazia retorna todas -->
-        <select id="f-operacao" onchange="carregarPecas()">
-            <option value="">Todas as Operações</option>
-            <option value="FormarPonta">Formar Ponta</option>
-            <option value="Trefilar">Trefilar</option>
-            <option value="Endireitar">Endireitar</option>
-            <option value="Cortar">Cortar</option>
-            <option value="LimparBlank">Limpar Blank</option>
-            <option value="FormarEndForming">Formar End Forming</option>
-            <option value="Curvar">Curvar</option>
-            <option value="Recalcar">Recalcar</option>
-            <option value="Rebarbar">Rebarbar</option>
-            <option value="Zincar">Zincar</option>
-            <option value="Calibrar">Calibrar</option>
-        </select>
-        <input type="date" id="f-entrada" oninput="carregarPecas()">
-        <!-- Limpa todos os campos de filtro e recarrega a tabela completa -->
-        <button onclick="limparFiltros()">✕ Limpar</button>
-    </div>
-
-    <!-- Tabela principal: cabeçalho fixo, corpo preenchido dinamicamente pelo JS -->
+    <!-- Tabela principal: filtros embutidos no cabeçalho, corpo preenchido dinamicamente pelo JS -->
     <table id="tabela-pecas">
         <thead>
             <tr>
@@ -180,6 +156,32 @@
                 <th>Data Entrada</th>
                 <th>Status</th>
                 <th>Ações</th>
+            </tr>
+            <!-- Linha de filtros: um campo por coluna -->
+            <tr class="linha-filtros">
+                <th></th>
+                <th><input type="text" id="f-codigo" placeholder="Filtrar..." oninput="carregarPecas()"></th>
+                <th><input type="text" id="f-nome" placeholder="Filtrar..." oninput="carregarPecas()"></th>
+                <th>
+                    <select id="f-operacao" onchange="carregarPecas()">
+                        <option value="">Todas</option>
+                        <option value="FormarPonta">Formar Ponta</option>
+                        <option value="Trefilar">Trefilar</option>
+                        <option value="Endireitar">Endireitar</option>
+                        <option value="Cortar">Cortar</option>
+                        <option value="LimparBlank">Limpar Blank</option>
+                        <option value="FormarEndForming">Formar End Forming</option>
+                        <option value="Curvar">Curvar</option>
+                        <option value="Recalcar">Recalcar</option>
+                        <option value="Rebarbar">Rebarbar</option>
+                        <option value="Zincar">Zincar</option>
+                        <option value="Calibrar">Calibrar</option>
+                    </select>
+                </th>
+                <th><input type="text" id="f-lote" placeholder="Filtrar..." oninput="carregarPecas()"></th>
+                <th><input type="date" id="f-entrada" oninput="carregarPecas()"></th>
+                <th><input type="date" id="f-saida" oninput="carregarPecas()"></th>
+                <th><button onclick="limparFiltros()">X</button></th>
             </tr>
         </thead>
         <!-- Corpo vazio: preenchido por carregarPecas() ao abrir a página -->
@@ -259,6 +261,23 @@
         // Guarda o id da peça sendo editada — null significa modo cadastro novo
         let pecaEditandoId = null;
 
+        // Guarda a última lista carregada para permitir editar sem colocar JSON dentro do HTML
+        let pecasCarregadas = [];
+
+        // Converte data do formato ISO (AAAA-MM-DD) para BR (DD/MM/AAAA) para exibição na tabela
+        function formatarDataBr(data) {
+            if (!data) return "";
+            const partes = data.split("-");
+            if (partes.length !== 3) return data;
+            return `${partes[2]}/${partes[1]}/${partes[0]}`;
+        }
+
+        // Localiza a peça pelo id e abre o modal de edição com os dados dela
+        function abrirModalPorId(id) {
+            const peca = pecasCarregadas.find(p => p.id === id);
+            if (peca) abrirModal(peca);
+        }
+
         // Abre o modal: limpa os campos para novo cadastro ou preenche com dados da peça para edição
         function abrirModal(peca = null) {
             pecaEditandoId = peca ? peca.id : null;
@@ -306,7 +325,12 @@
 
             if (!confirm(`Tem certeza que deseja excluir a peça #${id}?`)) return;
 
-            await fetch(`/pecas/${id}`, { method: "DELETE" });
+            const res = await fetch(`/pecas/${id}`, { method: "DELETE" });
+
+            if (!res.ok) {
+                alert("Erro ao excluir peça.");
+                return;
+            }
 
             fecharModalDeletar();
             carregarPecas(); // Atualiza a tabela após a exclusão
@@ -321,6 +345,7 @@
             const lote     = document.getElementById("f-lote").value.trim();
             const operacao = document.getElementById("f-operacao").value;
             const entrada  = document.getElementById("f-entrada").value;
+            const saida    = document.getElementById("f-saida").value;
 
             // Só adiciona o parâmetro se o campo foi preenchido
             if (codigo)   params.append("codigo_pi", codigo);
@@ -328,14 +353,24 @@
             if (lote)     params.append("lote", lote);
             if (operacao) params.append("proxima_operacao", operacao);
             if (entrada)  params.append("data_entrada", entrada);
+            if (saida)    params.append("data_saida", saida);
 
             const res  = await fetch(`/pecas?${params.toString()}`);
             const list = await res.json();
+
+            pecasCarregadas = list;
+
             const corpo = document.getElementById("corpo-tabela");
             corpo.innerHTML = "";
 
+            if (list.length === 0) {
+                corpo.innerHTML = `<tr><td colspan="8">Nenhuma peça encontrada.</td></tr>`;
+                return;
+            }
+
             list.forEach(p => {
-                const status = p.data_saida ? `Saiu em: ${p.data_saida}` : "Em estoque";
+                const status = p.data_saida ? `Saiu em: ${formatarDataBr(p.data_saida)}` : "Em estoque";
+
                 corpo.innerHTML += `
                     <tr>
                         <td>${p.id}</td>
@@ -343,10 +378,10 @@
                         <td>${p.nome}</td>
                         <td>${p.proxima_operacao}</td>
                         <td>${p.lote}</td>
-                        <td>${p.data_entrada}</td>
+                        <td>${formatarDataBr(p.data_entrada)}</td>
                         <td>${status}</td>
                         <td>
-                            <button class="btn-acao" onclick='abrirModal(${JSON.stringify(p)})'>✏️</button>
+                            <button class="btn-acao" onclick="abrirModalPorId(${p.id})">Editar</button>
                         </td>
                     </tr>`;
             });
@@ -359,6 +394,7 @@
             document.getElementById("f-lote").value     = "";
             document.getElementById("f-operacao").value = "";
             document.getElementById("f-entrada").value  = "";
+            document.getElementById("f-saida").value    = "";
             carregarPecas();
         }
 
@@ -386,44 +422,33 @@
         async function salvarPeca() {
             const data_saida = document.getElementById("data_saida").value;
             const peca = {
-                codigo_pi:        document.getElementById("codigo_pi").value,
-                nome:             document.getElementById("nome").value,
+                codigo_pi:        document.getElementById("codigo_pi").value.trim(),
+                nome:             document.getElementById("nome").value.trim(),
                 proxima_operacao: document.getElementById("proxima_operacao").value,
-                lote:             document.getElementById("lote").value,
+                lote:             document.getElementById("lote").value.trim(),
                 data_entrada:     document.getElementById("data_entrada").value,
                 data_saida:       data_saida || null,
             };
 
             if (!validarCampos(peca)) return;
 
-            if (pecaEditandoId !== null) {
-                // Modo edição: envia PUT com o id da peça na URL
-                await fetch(`/pecas/${pecaEditandoId}`, {
-                    method:  "PUT",
-                    headers: { "Content-Type": "application/json" },
-                    body:    JSON.stringify(peca),
-                });
-            } else {
-                // Modo cadastro: envia POST para criar nova peça no banco
-                await fetch("/pecas", {
-                    method:  "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body:    JSON.stringify(peca),
-                });
+            const url = pecaEditandoId !== null ? `/pecas/${pecaEditandoId}` : "/pecas";
+            const method = pecaEditandoId !== null ? "PUT" : "POST";
+
+            const res = await fetch(url, {
+                method:  method,
+                headers: { "Content-Type": "application/json" },
+                body:    JSON.stringify(peca),
+            });
+
+            if (!res.ok) {
+                const msg = await res.text();
+                alert(msg || "Erro ao salvar peça.");
+                return;
             }
 
             fecharModal();
             carregarPecas(); // Recarrega a tabela para refletir a alteração
-        }
-
-        // Limpa todos os campos de filtro e recarrega a tabela completa
-        function limparFiltros() {
-            document.getElementById("f-codigo").value   = "";
-            document.getElementById("f-nome").value     = "";
-            document.getElementById("f-lote").value     = "";
-            document.getElementById("f-operacao").value = "";
-            document.getElementById("f-entrada").value  = "";
-            carregarPecas();
         }
 
         // Carrega a tabela automaticamente ao abrir a página

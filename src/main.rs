@@ -27,7 +27,7 @@ enum ProximaOperacao {
     Calibrar,
 }
 
-// Converte String vinda do banco ("Recalcar") de volta para a variante do enum (ProximaOperacao::Recalcar)
+// Converte String vinda do banco ou do frontend ("Recalcar") para a variante do enum
 impl FromStr for ProximaOperacao {
     type Err = String;
 
@@ -44,7 +44,6 @@ impl FromStr for ProximaOperacao {
             "Rebarbar"         => Ok(ProximaOperacao::Rebarbar),
             "Zincar"           => Ok(ProximaOperacao::Zincar),
             "Calibrar"         => Ok(ProximaOperacao::Calibrar),
-            // Qualquer valor fora da lista causa erro imediato — dado inválido nunca entra no banco
             _ => Err(format!("Operação desconhecida: {}", s)),
         }
     }
@@ -60,7 +59,7 @@ struct Peca {
     codigo_pi:        String,          // 8 dígitos numéricos — identificador interno da peça
     nome:             String,          // Nome descritivo da peça (ex: 31-2298 - Haste Curvada)
     proxima_operacao: ProximaOperacao, // Operação seguinte no processo produtivo
-    data_entrada:     String,          // Data em que a peça entrou no estoque
+    data_entrada:     String,          // Data em formato ISO (AAAA-MM-DD), ideal para input type="date"
     lote:             String,          // Lote de origem — padrão H + 10 dígitos (ex: H0501001001)
     data_saida:       Option<String>,  // None = peça ainda em estoque, Some = data em que saiu
 }
@@ -161,20 +160,10 @@ fn atualizar_peca(conn: &Connection, peca: &Peca) {
     println!("Peça #{} atualizada.", peca.id);
 }
 
-// Converte data do formato ISO (AAAA-MM-DD) para BR (DD/MM/AAAA) para exibição no frontend
-fn formatar_data(data: &str) -> String {
-    let partes: Vec<&str> = data.split('-').collect();
-    if partes.len() == 3 {
-        format!("{}/{}/{}", partes[2], partes[1], partes[0])
-    } else {
-        data.to_string() // retorna original se o formato for inesperado
-    }
-}
-
 // Monta SELECT com WHERE dinâmico — só passa parâmetros das colunas filtradas
 fn listar_pecas_filtradas(conn: &Connection, f: &FiltrosPeca) -> Vec<Peca> {
     let mut sql = String::from(
-        "SELECT id, codigo_pi, nome, proxima_operacao, lote, data_entrada, data_saida FROM pecas WHERE 1=1"
+        "SELECT id, codigo_pi, nome, proxima_operacao, data_entrada, lote, data_saida FROM pecas WHERE 1=1"
     );
     let mut params: Vec<String> = Vec::new();
 
@@ -185,6 +174,9 @@ fn listar_pecas_filtradas(conn: &Connection, f: &FiltrosPeca) -> Vec<Peca> {
     if let Some(v) = &f.proxima_operacao { sql.push_str(" AND proxima_operacao LIKE ?"); params.push(format!("%{}%", v)); }
     if let Some(v) = &f.data_entrada     { sql.push_str(" AND data_entrada LIKE ?");     params.push(format!("%{}%", v)); }
     if let Some(v) = &f.data_saida       { sql.push_str(" AND data_saida LIKE ?");       params.push(format!("%{}%", v)); }
+
+    // Mostra as peças mais recentes primeiro
+    sql.push_str(" ORDER BY id DESC");
 
     let mut stmt = conn.prepare(&sql).expect("Erro ao preparar filtro");
 
@@ -204,11 +196,10 @@ fn listar_pecas_filtradas(conn: &Connection, f: &FiltrosPeca) -> Vec<Peca> {
                     let s: String = row.get(3)?;
                     s.parse().expect("Operação inválida no banco")
                 },
-                lote:             row.get(4)?,
-                // Converte data_entrada de ISO para BR antes de enviar ao frontend
-                data_entrada:     formatar_data(&row.get::<_, String>(5)?),
-                // Converte data_saida de ISO para BR se existir, ou mantém None
-                data_saida:       row.get::<_, Option<String>>(6)?.map(|d| formatar_data(&d)),
+                // Mantém data em ISO para o frontend conseguir preencher input type="date"
+                data_entrada:     row.get(4)?,
+                lote:             row.get(5)?,
+                data_saida:       row.get(6)?,
             })
         })
         .expect("Erro ao filtrar peças")
@@ -216,6 +207,31 @@ fn listar_pecas_filtradas(conn: &Connection, f: &FiltrosPeca) -> Vec<Peca> {
         .collect();
 
     pecas
+}
+
+// Valida os campos recebidos do frontend antes de inserir ou atualizar no banco
+fn validar_peca(body: &PecaJson) -> Result<ProximaOperacao, String> {
+    // Rejeita se codigo_pi não tiver exatamente 8 dígitos numéricos
+    if body.codigo_pi.len() != 8 || !body.codigo_pi.chars().all(|c| c.is_ascii_digit()) {
+        return Err("Código PI inválido — deve ter exatamente 8 dígitos numéricos.".to_string());
+    }
+
+    // Rejeita se lote não seguir o padrão H + 10 dígitos (ex: H0501001001)
+    let lote_valido = body.lote.starts_with('H')
+        && body.lote.len() == 11
+        && body.lote[1..].chars().all(|c| c.is_ascii_digit());
+
+    if !lote_valido {
+        return Err("Lote inválido — fora do padrão H + 10 dígitos.".to_string());
+    }
+
+    // Rejeita se campos obrigatórios estiverem vazios
+    if body.nome.trim().is_empty() || body.data_entrada.trim().is_empty() {
+        return Err("Nome e data de entrada são obrigatórios.".to_string());
+    }
+
+    // Converte a operação para enum e retorna erro amigável se vier inválida
+    body.proxima_operacao.parse()
 }
 
 // ================================================================================================
@@ -246,20 +262,10 @@ async fn post_peca(
     data: web::Data<AppState>,
     body: web::Json<PecaJson>,
 ) -> impl Responder {
-
-    // Rejeita se codigo_pi não tiver exatamente 8 dígitos numéricos
-    if body.codigo_pi.len() != 8 || !body.codigo_pi.chars().all(|c| c.is_ascii_digit()) {
-        return HttpResponse::BadRequest().body("Código PI inválido — deve ter exatamente 8 dígitos numéricos.");
-    }
-
-    // Rejeita se lote não seguir o padrão H + 10 dígitos (ex: H0501001001)
-    let lote_valido = body.lote.starts_with('H')
-        && body.lote.len() == 11
-        && body.lote[1..].chars().all(|c| c.is_ascii_digit());
-
-    if !lote_valido {
-        return HttpResponse::BadRequest().body("Lote inválido — fora do padrão H + 10 dígitos.");
-    }
+    let proxima_operacao = match validar_peca(&body) {
+        Ok(op) => op,
+        Err(msg) => return HttpResponse::BadRequest().body(msg),
+    };
 
     let conn = data.conn.lock().expect("Erro ao acessar banco");
 
@@ -268,7 +274,7 @@ async fn post_peca(
         id:               0,
         codigo_pi:        body.codigo_pi.clone(),
         nome:             body.nome.clone(),
-        proxima_operacao: body.proxima_operacao.parse().expect("Operação inválida"),
+        proxima_operacao,
         lote:             body.lote.clone(),
         data_entrada:     body.data_entrada.clone(),
         data_saida:       body.data_saida.clone(),
@@ -284,19 +290,10 @@ async fn put_peca(
     path: web::Path<i32>,
     body: web::Json<PecaJson>,
 ) -> impl Responder {
-
-    // Mesmas validações do POST — garante integridade mesmo em edições
-    if body.codigo_pi.len() != 8 || !body.codigo_pi.chars().all(|c| c.is_ascii_digit()) {
-        return HttpResponse::BadRequest().body("Código PI inválido.");
-    }
-
-    let lote_valido = body.lote.starts_with('H')
-        && body.lote.len() == 11
-        && body.lote[1..].chars().all(|c| c.is_ascii_digit());
-
-    if !lote_valido {
-        return HttpResponse::BadRequest().body("Lote inválido.");
-    }
+    let proxima_operacao = match validar_peca(&body) {
+        Ok(op) => op,
+        Err(msg) => return HttpResponse::BadRequest().body(msg),
+    };
 
     let conn = data.conn.lock().expect("Erro ao acessar banco");
 
@@ -305,7 +302,7 @@ async fn put_peca(
         id:               path.into_inner(),
         codigo_pi:        body.codigo_pi.clone(),
         nome:             body.nome.clone(),
-        proxima_operacao: body.proxima_operacao.parse().expect("Operação inválida"),
+        proxima_operacao,
         lote:             body.lote.clone(),
         data_entrada:     body.data_entrada.clone(),
         data_saida:       body.data_saida.clone(),
