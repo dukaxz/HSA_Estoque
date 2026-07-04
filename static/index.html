@@ -7,21 +7,27 @@
         /* Define fonte padrão, espaçamento interno e cor de fundo da página */
         body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
 
-        /* Alinha título e botão "Nova Peça" lado a lado com espaço entre eles */
+        /* Alinha título e botões lado a lado com espaço entre eles */
         .header { display: flex; align-items: center; gap: 20px; }
         h1 { color: #333; margin: 0; }
 
-        /* Estilo do botão azul "Nova Peça" e escurece ao passar o mouse */
-        .btn-cadastrar {
+        /* Estilo base compartilhado pelos dois botões do cabeçalho */
+        .btn-cadastrar, .btn-deletar {
             padding: 8px 18px;
-            background: #1a73e8;
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-size: 14px;
         }
+
+        /* Botão azul de cadastro e escurece ao passar o mouse */
+        .btn-cadastrar { background: #1a73e8; }
         .btn-cadastrar:hover { background: #1558b0; }
+
+        /* Botão vermelho de exclusão e escurece ao passar o mouse */
+        .btn-deletar { background: #e53935; }
+        .btn-deletar:hover { background: #b71c1c; }
 
         /* Tabela ocupa largura total, sem espaço entre bordas das células */
         table { width: 100%; border-collapse: collapse; margin-top: 24px; background: white; border-radius: 8px; overflow: hidden; }
@@ -102,16 +108,17 @@
             cursor: pointer;
         }
 
-        /* Remove borda e fundo dos botões de ação (✏️ e 🗑) dentro da tabela */
+        /* Remove borda e fundo dos botões de ação (✏️) dentro da tabela */
         .btn-acao { border: none; background: none; cursor: pointer; font-size: 16px; }
     </style>
 </head>
 <body>
 
-    <!-- Cabeçalho: título da aplicação + botão que abre o modal de cadastro -->
+    <!-- Cabeçalho: título + botão de cadastro + botão de exclusão por id -->
     <div class="header">
         <h1>HSA Automotive Systems — Gestão de Peças</h1>
         <button class="btn-cadastrar" onclick="abrirModal()">+ Nova Peça</button>
+        <button class="btn-deletar" onclick="abrirModalDeletar()">🗑 Excluir Peça</button>
     </div>
 
     <!-- Tabela principal: cabeçalho fixo, corpo preenchido dinamicamente pelo JS -->
@@ -184,6 +191,23 @@
         </div>
     </div>
 
+    <!-- Modal de exclusão: abre separado do modal de cadastro, no mesmo nível -->
+    <div class="modal-fundo" id="modal-deletar-fundo">
+        <div class="modal">
+            <h2>Excluir Peça</h2>
+
+            <!-- Campo numérico para digitar o id que aparece na coluna # da tabela -->
+            <label>ID da Peça (coluna # na tabela)</label>
+            <input type="number" id="id-deletar" placeholder="Ex: 3" min="1">
+
+            <div class="modal-botoes">
+                <button class="btn-cancelar" onclick="fecharModalDeletar()">Cancelar</button>
+                <!-- Botão vermelho para reforçar que é uma ação destrutiva -->
+                <button class="btn-salvar" style="background:#e53935" onclick="confirmarDelecao()">Excluir</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Guarda o id da peça sendo editada — null significa modo cadastro novo
         let pecaEditandoId = null;
@@ -206,10 +230,39 @@
             document.getElementById("modal-fundo").classList.add("aberto");
         }
 
-        // Fecha o modal e reseta o id de edição para null
+        // Fecha o modal de cadastro/edição e reseta o id de edição para null
         function fecharModal() {
             pecaEditandoId = null;
             document.getElementById("modal-fundo").classList.remove("aberto");
+        }
+
+        // Abre o modal de exclusão e limpa o campo de id
+        function abrirModalDeletar() {
+            document.getElementById("id-deletar").value = "";
+            document.getElementById("modal-deletar-fundo").classList.add("aberto");
+        }
+
+        // Fecha o modal de exclusão sem fazer nada
+        function fecharModalDeletar() {
+            document.getElementById("modal-deletar-fundo").classList.remove("aberto");
+        }
+
+        // Valida o id digitado e envia DELETE /pecas/{id} para o servidor
+        async function confirmarDelecao() {
+            const id = document.getElementById("id-deletar").value;
+
+            // Rejeita se o campo estiver vazio ou com valor inválido
+            if (!id || id <= 0) {
+                alert("Digite um ID válido.");
+                return;
+            }
+
+            if (!confirm(`Tem certeza que deseja excluir a peça #${id}?`)) return;
+
+            await fetch(`/pecas/${id}`, { method: "DELETE" });
+
+            fecharModalDeletar();
+            carregarPecas(); // Atualiza a tabela após a exclusão
         }
 
         // Busca todas as peças no GET /pecas e reconstrói as linhas da tabela
@@ -219,7 +272,7 @@
             const corpo = document.getElementById("corpo-tabela");
             corpo.innerHTML = "";
 
-            // Cria uma linha por peça com status calculado e botões de ação
+            // Cria uma linha por peça com status calculado e botão de edição
             list.forEach(p => {
                 // Mostra a data de saída se existir, caso contrário exibe "Em estoque"
                 const status = p.data_saida ? `Saiu em: ${p.data_saida}` : "Em estoque";
@@ -235,8 +288,6 @@
                         <td>
                             <!-- Passa o objeto completo da peça para abrir o modal já preenchido -->
                             <button class="btn-acao" onclick='abrirModal(${JSON.stringify(p)})'>✏️</button>
-                            <!-- Pede confirmação antes de deletar para evitar exclusão acidental -->
-                            <button class="btn-acao" style="color:red" onclick="deletarPeca(${p.id})">🗑</button>
                         </td>
                     </tr>`;
             });
@@ -294,13 +345,6 @@
 
             fecharModal();
             carregarPecas(); // Recarrega a tabela para refletir a alteração
-        }
-
-        // Envia DELETE /pecas/{id} e recarrega a tabela após confirmação do usuário
-        async function deletarPeca(id) {
-            if (!confirm("Tem certeza que deseja deletar esta peça?")) return;
-            await fetch(`/pecas/${id}`, { method: "DELETE" });
-            carregarPecas();
         }
 
         // Carrega a tabela automaticamente ao abrir a página
