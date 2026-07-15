@@ -3,137 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>HSA - Gestão de Peças</title>
-    <style>
-        /* Define fonte padrão, espaçamento interno e cor de fundo da página */
-        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
-
-        /* Alinha título e botões lado a lado com espaço entre eles */
-        .header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
-        h1 { color: #333; margin: 0; }
-
-        /* Estilo base compartilhado pelos dois botões do cabeçalho */
-        .btn-cadastrar, .btn-deletar {
-            padding: 8px 18px;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-        }
-
-        /* Botão azul de cadastro e escurece ao passar o mouse */
-        .btn-cadastrar { background: #1a73e8; }
-        .btn-cadastrar:hover { background: #1558b0; }
-
-        /* Botão vermelho de exclusão e escurece ao passar o mouse */
-        .btn-deletar { background: #e53935; }
-        .btn-deletar:hover { background: #b71c1c; }
-
-        /* Tabela ocupa largura total, sem espaço entre bordas das células */
-        table { width: 100%; border-collapse: collapse; margin-top: 24px; background: white; border-radius: 8px; overflow: hidden; }
-
-        /* Borda inferior em cada célula e espaçamento interno */
-        th, td { border-bottom: 1px solid #ddd; padding: 10px 12px; text-align: left; }
-
-        /* Cabeçalho da tabela com fundo azul e texto branco */
-        th { background: #1a73e8; color: white; }
-
-        /* Remove borda da última linha para não duplicar com a borda do container */
-        tr:last-child td { border-bottom: none; }
-
-        /* Destaca a linha ao passar o mouse com fundo azul claro */
-        tr:hover td { background: #f0f4ff; }
-
-        /* Fundo escuro semitransparente que bloqueia a página quando o modal está aberto */
-        .modal-fundo {
-            display: none;
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.5);
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-        }
-
-        /* Classe adicionada via JS para exibir o fundo e centralizar o modal */
-        .modal-fundo.aberto { display: flex; }
-
-        /* Janela branca do modal centralizada com sombra e bordas arredondadas */
-        .modal {
-            background: white;
-            padding: 28px;
-            border-radius: 10px;
-            width: 360px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-        }
-
-        /* Título do modal sem margem superior */
-        .modal h2 { margin-top: 0; color: #333; font-size: 18px; }
-
-        /* Labels dos campos em bloco com espaço acima para separar os campos */
-        .modal label { font-size: 13px; color: #555; display: block; margin-top: 10px; }
-
-        /* Inputs e selects ocupam largura total com borda e padding uniforme */
-        .modal input,
-        .modal select {
-            width: 100%;
-            padding: 7px;
-            margin-top: 3px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 14px;
-        }
-
-        /* Alinha botões Cancelar e Salvar à direita com espaço entre eles */
-        .modal-botoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
-
-        /* Botão Salvar azul igual ao botão Nova Peça */
-        .btn-salvar {
-            padding: 8px 18px;
-            background: #1a73e8;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        /* Botão Cancelar cinza neutro para não competir visualmente com o Salvar */
-        .btn-cancelar {
-            padding: 8px 18px;
-            background: #eee;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-
-        /* Remove borda e fundo dos botões de ação dentro da tabela */
-        .btn-acao { border: none; background: none; cursor: pointer; font-size: 14px; color: #1a73e8; }
-
-        /* Campos de filtro no cabeçalho da tabela */
-        .linha-filtros input,
-        .linha-filtros select {
-            width: 100%;
-            padding: 6px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            box-sizing: border-box;
-            font-size: 13px;
-        }
-
-        /* Botão de limpar filtros com estilo neutro */
-        .linha-filtros button {
-            padding: 6px 10px;
-            border: none;
-            border-radius: 5px;
-            background: white;
-            cursor: pointer;
-            font-size: 13px;
-        }
-
-        .linha-filtros button:hover { background: #f0f0f0; }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -157,11 +27,12 @@
                 <th>Status</th>
                 <th>Ações</th>
             </tr>
-            <!-- Linha de filtros: um campo por coluna -->
+            <!-- Linha de filtros: um campo por coluna. Campos de texto usam debounce para não
+                 disparar uma requisição a cada tecla digitada -->
             <tr class="linha-filtros">
                 <th></th>
-                <th><input type="text" id="f-codigo" placeholder="Filtrar..." oninput="carregarPecas()"></th>
-                <th><input type="text" id="f-nome" placeholder="Filtrar..." oninput="carregarPecas()"></th>
+                <th><input type="text" id="f-codigo" placeholder="Filtrar..." oninput="carregarPecasComDebounce()"></th>
+                <th><input type="text" id="f-nome" placeholder="Filtrar..." oninput="carregarPecasComDebounce()"></th>
                 <th>
                     <select id="f-operacao" onchange="carregarPecas()">
                         <option value="">Todas</option>
@@ -178,9 +49,9 @@
                         <option value="Calibrar">Calibrar</option>
                     </select>
                 </th>
-                <th><input type="text" id="f-lote" placeholder="Filtrar..." oninput="carregarPecas()"></th>
-                <th><input type="date" id="f-entrada" oninput="carregarPecas()"></th>
-                <th><input type="date" id="f-saida" oninput="carregarPecas()"></th>
+                <th><input type="text" id="f-lote" placeholder="Filtrar..." oninput="carregarPecasComDebounce()"></th>
+                <th><input type="date" id="f-entrada" onchange="carregarPecas()"></th>
+                <th><input type="date" id="f-saida" onchange="carregarPecas()"></th>
                 <th><button onclick="limparFiltros()">X</button></th>
             </tr>
         </thead>
@@ -252,208 +123,11 @@
             <div class="modal-botoes">
                 <button class="btn-cancelar" onclick="fecharModalDeletar()">Cancelar</button>
                 <!-- Botão vermelho para reforçar que é uma ação destrutiva -->
-                <button class="btn-salvar" style="background:#e53935" onclick="confirmarDelecao()">Excluir</button>
+                <button class="btn-salvar btn-perigo" onclick="confirmarDelecao()">Excluir</button>
             </div>
         </div>
     </div>
 
-    <script>
-        // Guarda o id da peça sendo editada — null significa modo cadastro novo
-        let pecaEditandoId = null;
-
-        // Guarda a última lista carregada para permitir editar sem colocar JSON dentro do HTML
-        let pecasCarregadas = [];
-
-        // Converte data do formato ISO (AAAA-MM-DD) para BR (DD/MM/AAAA) para exibição na tabela
-        function formatarDataBr(data) {
-            if (!data) return "";
-            const partes = data.split("-");
-            if (partes.length !== 3) return data;
-            return `${partes[2]}/${partes[1]}/${partes[0]}`;
-        }
-
-        // Localiza a peça pelo id e abre o modal de edição com os dados dela
-        function abrirModalPorId(id) {
-            const peca = pecasCarregadas.find(p => p.id === id);
-            if (peca) abrirModal(peca);
-        }
-
-        // Abre o modal: limpa os campos para novo cadastro ou preenche com dados da peça para edição
-        function abrirModal(peca = null) {
-            pecaEditandoId = peca ? peca.id : null;
-
-            // Muda o título do modal conforme o modo
-            document.getElementById("modal-titulo").textContent = peca ? "Editar Peça" : "Cadastrar Nova Peça";
-
-            // Preenche cada campo com o valor da peça ou vazio para novo cadastro
-            document.getElementById("codigo_pi").value        = peca ? peca.codigo_pi : "";
-            document.getElementById("nome").value             = peca ? peca.nome : "";
-            document.getElementById("proxima_operacao").value = peca ? peca.proxima_operacao : "FormarPonta";
-            document.getElementById("lote").value             = peca ? peca.lote : "";
-            document.getElementById("data_entrada").value     = peca ? peca.data_entrada : "";
-            document.getElementById("data_saida").value       = peca ? (peca.data_saida || "") : "";
-
-            document.getElementById("modal-fundo").classList.add("aberto");
-        }
-
-        // Fecha o modal de cadastro/edição e reseta o id de edição para null
-        function fecharModal() {
-            pecaEditandoId = null;
-            document.getElementById("modal-fundo").classList.remove("aberto");
-        }
-
-        // Abre o modal de exclusão e limpa o campo de id
-        function abrirModalDeletar() {
-            document.getElementById("id-deletar").value = "";
-            document.getElementById("modal-deletar-fundo").classList.add("aberto");
-        }
-
-        // Fecha o modal de exclusão sem fazer nada
-        function fecharModalDeletar() {
-            document.getElementById("modal-deletar-fundo").classList.remove("aberto");
-        }
-
-        // Valida o id digitado e envia DELETE /pecas/{id} para o servidor
-        async function confirmarDelecao() {
-            const id = document.getElementById("id-deletar").value;
-
-            // Rejeita se o campo estiver vazio ou com valor inválido
-            if (!id || id <= 0) {
-                alert("Digite um ID válido.");
-                return;
-            }
-
-            if (!confirm(`Tem certeza que deseja excluir a peça #${id}?`)) return;
-
-            const res = await fetch(`/pecas/${id}`, { method: "DELETE" });
-
-            if (!res.ok) {
-                alert("Erro ao excluir peça.");
-                return;
-            }
-
-            fecharModalDeletar();
-            carregarPecas(); // Atualiza a tabela após a exclusão
-        }
-
-        // Busca peças no backend com os filtros ativos e reconstrói a tabela
-        async function carregarPecas() {
-            // Lê o valor de cada campo de filtro
-            const params = new URLSearchParams();
-            const codigo   = document.getElementById("f-codigo").value.trim();
-            const nome     = document.getElementById("f-nome").value.trim();
-            const lote     = document.getElementById("f-lote").value.trim();
-            const operacao = document.getElementById("f-operacao").value;
-            const entrada  = document.getElementById("f-entrada").value;
-            const saida    = document.getElementById("f-saida").value;
-
-            // Só adiciona o parâmetro se o campo foi preenchido
-            if (codigo)   params.append("codigo_pi", codigo);
-            if (nome)     params.append("nome", nome);
-            if (lote)     params.append("lote", lote);
-            if (operacao) params.append("proxima_operacao", operacao);
-            if (entrada)  params.append("data_entrada", entrada);
-            if (saida)    params.append("data_saida", saida);
-
-            const res  = await fetch(`/pecas?${params.toString()}`);
-            const list = await res.json();
-
-            pecasCarregadas = list;
-
-            const corpo = document.getElementById("corpo-tabela");
-            corpo.innerHTML = "";
-
-            if (list.length === 0) {
-                corpo.innerHTML = `<tr><td colspan="8">Nenhuma peça encontrada.</td></tr>`;
-                return;
-            }
-
-            list.forEach(p => {
-                const status = p.data_saida ? `Saiu em: ${formatarDataBr(p.data_saida)}` : "Em estoque";
-
-                corpo.innerHTML += `
-                    <tr>
-                        <td>${p.id}</td>
-                        <td>${p.codigo_pi}</td>
-                        <td>${p.nome}</td>
-                        <td>${p.proxima_operacao}</td>
-                        <td>${p.lote}</td>
-                        <td>${formatarDataBr(p.data_entrada)}</td>
-                        <td>${status}</td>
-                        <td>
-                            <button class="btn-acao" onclick="abrirModalPorId(${p.id})">Editar</button>
-                        </td>
-                    </tr>`;
-            });
-        }
-
-        // Limpa todos os campos de filtro e recarrega a tabela completa
-        function limparFiltros() {
-            document.getElementById("f-codigo").value   = "";
-            document.getElementById("f-nome").value     = "";
-            document.getElementById("f-lote").value     = "";
-            document.getElementById("f-operacao").value = "";
-            document.getElementById("f-entrada").value  = "";
-            document.getElementById("f-saida").value    = "";
-            carregarPecas();
-        }
-
-        // Valida codigo_pi (8 dígitos) e lote (H + 10 dígitos) antes de enviar ao servidor
-        function validarCampos(peca) {
-            const regexCodigo = /^\d{8}$/;
-            const regexLote   = /^H\d{10}$/;
-
-            if (!regexCodigo.test(peca.codigo_pi)) {
-                alert("Código PI inválido — deve ter exatamente 8 dígitos numéricos.");
-                return false;
-            }
-            if (!regexLote.test(peca.lote)) {
-                alert("Lote inválido — deve começar com H seguido de 10 dígitos (ex: H0501001001).");
-                return false;
-            }
-            if (!peca.nome || !peca.data_entrada) {
-                alert("Preencha todos os campos obrigatórios.");
-                return false;
-            }
-            return true;
-        }
-
-        // Decide entre POST (cadastro) ou PUT (edição) com base no pecaEditandoId
-        async function salvarPeca() {
-            const data_saida = document.getElementById("data_saida").value;
-            const peca = {
-                codigo_pi:        document.getElementById("codigo_pi").value.trim(),
-                nome:             document.getElementById("nome").value.trim(),
-                proxima_operacao: document.getElementById("proxima_operacao").value,
-                lote:             document.getElementById("lote").value.trim(),
-                data_entrada:     document.getElementById("data_entrada").value,
-                data_saida:       data_saida || null,
-            };
-
-            if (!validarCampos(peca)) return;
-
-            const url = pecaEditandoId !== null ? `/pecas/${pecaEditandoId}` : "/pecas";
-            const method = pecaEditandoId !== null ? "PUT" : "POST";
-
-            const res = await fetch(url, {
-                method:  method,
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify(peca),
-            });
-
-            if (!res.ok) {
-                const msg = await res.text();
-                alert(msg || "Erro ao salvar peça.");
-                return;
-            }
-
-            fecharModal();
-            carregarPecas(); // Recarrega a tabela para refletir a alteração
-        }
-
-        // Carrega a tabela automaticamente ao abrir a página
-        carregarPecas();
-    </script>
-
+    <script src="app.js" defer></script>
 </body>
 </html>

@@ -1,0 +1,132 @@
+/* Define fonte padrão, espaçamento interno e cor de fundo da página */
+body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+
+/* Alinha título e botões lado a lado com espaço entre eles */
+.header { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+h1 { color: #333; margin: 0; }
+
+/* Estilo base compartilhado pelos dois botões do cabeçalho */
+.btn-cadastrar, .btn-deletar {
+    padding: 8px 18px;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+/* Botão azul de cadastro e escurece ao passar o mouse */
+.btn-cadastrar { background: #1a73e8; }
+.btn-cadastrar:hover { background: #1558b0; }
+
+/* Botão vermelho de exclusão e escurece ao passar o mouse */
+.btn-deletar { background: #e53935; }
+.btn-deletar:hover { background: #b71c1c; }
+
+/* Tabela ocupa largura total, sem espaço entre bordas das células */
+table { width: 100%; border-collapse: collapse; margin-top: 24px; background: white; border-radius: 8px; overflow: hidden; }
+
+/* Borda inferior em cada célula e espaçamento interno */
+th, td { border-bottom: 1px solid #ddd; padding: 10px 12px; text-align: left; }
+
+/* Cabeçalho da tabela com fundo azul e texto branco */
+th { background: #1a73e8; color: white; }
+
+/* Remove borda da última linha para não duplicar com a borda do container */
+tr:last-child td { border-bottom: none; }
+
+/* Destaca a linha ao passar o mouse com fundo azul claro */
+tr:hover td { background: #f0f4ff; }
+
+/* Fundo escuro semitransparente que bloqueia a página quando o modal está aberto */
+.modal-fundo {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+}
+
+/* Classe adicionada via JS para exibir o fundo e centralizar o modal */
+.modal-fundo.aberto { display: flex; }
+
+/* Janela branca do modal centralizada com sombra e bordas arredondadas */
+.modal {
+    background: white;
+    padding: 28px;
+    border-radius: 10px;
+    width: 360px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+/* Título do modal sem margem superior */
+.modal h2 { margin-top: 0; color: #333; font-size: 18px; }
+
+/* Labels dos campos em bloco com espaço acima para separar os campos */
+.modal label { font-size: 13px; color: #555; display: block; margin-top: 10px; }
+
+/* Inputs e selects ocupam largura total com borda e padding uniforme */
+.modal input,
+.modal select {
+    width: 100%;
+    padding: 7px;
+    margin-top: 3px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 14px;
+}
+
+/* Alinha botões Cancelar e Salvar à direita com espaço entre eles */
+.modal-botoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+/* Botão Salvar azul igual ao botão Nova Peça */
+.btn-salvar {
+    padding: 8px 18px;
+    background: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Variante vermelha do botão salvar, usada na confirmação de exclusão */
+.btn-salvar.btn-perigo { background: #e53935; }
+
+/* Botão Cancelar cinza neutro para não competir visualmente com o Salvar */
+.btn-cancelar {
+    padding: 8px 18px;
+    background: #eee;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* Remove borda e fundo dos botões de ação dentro da tabela */
+.btn-acao { border: none; background: none; cursor: pointer; font-size: 14px; color: #1a73e8; }
+
+/* Campos de filtro no cabeçalho da tabela */
+.linha-filtros input,
+.linha-filtros select {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-size: 13px;
+}
+
+/* Botão de limpar filtros com estilo neutro */
+.linha-filtros button {
+    padding: 6px 10px;
+    border: none;
+    border-radius: 5px;
+    background: white;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.linha-filtros button:hover { background: #f0f0f0; }
